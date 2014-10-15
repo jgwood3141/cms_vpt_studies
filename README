@@ -1,1 +1,13 @@
-readme now!
+##############
+#
+# readme now!
+#
+##############
+
+## All analysis and plotting is done in root macros executed by csh scripts in the scripts/ subdir
+
+## To analyze data and make all plots:
+> cd scripts/
+> source vpt_analyze_and_plot_data.csh
+
+## Similarly named scripts available to just analyze, plot data, or make html pages from plots
