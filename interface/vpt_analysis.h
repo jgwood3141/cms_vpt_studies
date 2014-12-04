@@ -336,6 +336,8 @@ class vptInfo{
   TF1 *fit_blue_norm_;
   TF1 *fit_orng_;
   TF1 *fit_orng_norm_;
+  TF1 *fit_cath_;
+  TF1 *fit_cath_norm_;
 
 
   // Contrunctor and destructor
@@ -371,8 +373,10 @@ vptInfo::vptInfo(site::site run_site, run_num::run_num run, TString vpt_num, dou
   fit_blue_norm_ = NULL;
   fit_orng_      = NULL;
   fit_orng_norm_ = NULL;
+  fit_cath_      = NULL;
+  fit_cath_norm_ = NULL;
 
-
+  
   //
   // Set-up useful strings for file i/o
   //
@@ -2611,9 +2615,10 @@ void vpt_analysis::get_cathode_corrections(){
 
      tree->SetBranchStatus("*",                   0);
      if(vpt->site_==site::uva){
-       tree->SetBranchStatus("blue_load*cathode*",  1);
-       tree->SetBranchStatus("blue_load_pin_corr*", 1);
-       tree->SetBranchStatus("elapsed_time",        1);
+       tree->SetBranchStatus("blue_load*cathode*",      1);
+       tree->SetBranchStatus("blue_load_led_frequency", 1);
+       tree->SetBranchStatus("blue_load_pin_corr*",     1);
+       tree->SetBranchStatus("elapsed_time",            1);
      }
      if(vpt->site_==site::brunel){
        tree->SetBranchStatus("elapsed_time",        1);
@@ -2689,6 +2694,8 @@ void vpt_analysis::get_cathode_corrections(){
        vars += "blue_load_dark_cathode_current";
        vars += ":";
        vars += "blue_load_dark_cathode_current_err";
+       vars += ":";
+       vars += "blue_load_led_frequency";
        //vars += ":";
        //vars += "blue_load_pin_correction";
        //vars += ":";
@@ -2699,8 +2706,9 @@ void vpt_analysis::get_cathode_corrections(){
        Double_t *cathode_current_err     = tree->GetVal(1);
        Double_t *dark_current            = tree->GetVal(2);
        Double_t *dark_current_err        = tree->GetVal(3);
-       //Double_t *load_pin_correction     = tree->GetVal(4);
-       //Double_t *load_pin_correction_err = tree->GetVal(5);
+       Double_t *load_frequency          = tree->GetVal(4);
+       //Double_t *load_pin_correction     = tree->GetVal(5);
+       //Double_t *load_pin_correction_err = tree->GetVal(6);
 
        int nEntries = (int)tree->GetEntries();
 
@@ -2730,8 +2738,8 @@ void vpt_analysis::get_cathode_corrections(){
 	   evt.blue_load_cathode_current_err_         = sqrt( pow(cathode_current_err[i], 2) + pow(dark_current_err[i], 2) );
 	 }
 	 
-	 evt.blue_load_cathode_current_per_pulse_     = evt.blue_load_cathode_current_/( evt.blue_load_led_frequency_ * dmm_apperature );
-	 evt.blue_load_cathode_current_per_pulse_err_ = evt.blue_load_cathode_current_err_/( evt.blue_load_led_frequency_ * dmm_apperature );
+	 evt.blue_load_cathode_current_per_pulse_     = evt.blue_load_cathode_current_/( load_frequency[i] * dmm_apperature );
+	 evt.blue_load_cathode_current_per_pulse_err_ = evt.blue_load_cathode_current_err_/( load_frequency[i] * dmm_apperature );
       
 	 
 	 // Load PIN corection
@@ -3287,7 +3295,9 @@ void vpt_analysis::get_filter_results(){
 	    list_forw.push_front(pin[i]);
 
 	    sdForw   = sum2Forw/numForw;
-	    sdForw  -= pow( avgForw, 2 ); if(sdForw<0) cout << "NEGATIVE SDFORW! sum2Forw/numForw = " << sdForw << ", pow(avgForw,2) = " << pow(avgForw, 2) << endl;
+	    sdForw  -= pow( avgForw, 2 ); 
+	    sdForw   = fabs( sdForw );
+	    if(sdForw<0) cout << "NEGATIVE SDFORW! sum2Forw/numForw = " << sdForw << ", pow(avgForw,2) = " << pow(avgForw, 2) << endl;
 	    sdForw   = sqrt(sdForw);
 	    list_sd_forw.push_front( sdForw );
 
@@ -3469,6 +3479,16 @@ void vpt_analysis::get_plots(vector<plotInfo> &plotList){
   v_vpt_plot uva_good_runs_fit_orng;
   v_vpt_plot uva_all_runs_fit_orng;
 
+  v_vpt_plot brunel_run1_fit_cath;
+  v_vpt_plot brunel_run2_fit_cath;
+  v_vpt_plot uva_run1_fit_cath;
+  v_vpt_plot uva_run2_fit_cath;
+  v_vpt_plot uva_run3_fit_cath;
+  v_vpt_plot uva_run4_fit_cath;
+  v_vpt_plot uva_run5_fit_cath;
+  v_vpt_plot uva_run6_fit_cath;
+  v_vpt_plot uva_good_runs_fit_cath;
+  v_vpt_plot uva_all_runs_fit_cath;
 
   // Loop over plot list 
   for(vector<plotInfo>::const_iterator tIter1 = plotList.begin(); tIter1 != plotList.end(); ++tIter1) {
@@ -3527,33 +3547,14 @@ void vpt_analysis::get_plots(vector<plotInfo> &plotList){
 	if(!hasVars) continue;
       }
       
-      /*
-      // Set-up title
-      TString plot_title = "CMS Preliminary, ";
-      if(vpt->site_==site::brunel) plot_title += "Brunel site, ";
-      if(vpt->site_==site::uva)    plot_title += "U.Va. site, ";
-
-      if(vpt->run_num_==run_num::run1) plot_title += "Run 1, ";
-      if(vpt->run_num_==run_num::run2) plot_title += "Run 2, ";
-      if(vpt->run_num_==run_num::run3) plot_title += "Run 3, ";
-      if(vpt->run_num_==run_num::run4) plot_title += "Run 4, ";
-      if(vpt->run_num_==run_num::run5) plot_title += "Run 5, ";
-      if(vpt->run_num_==run_num::run6) plot_title += "Run 6, ";
-
-      plot_title += "vpt" + vpt->rie_number_;
-      plot_title += ", ";
-      plot_title += plot.title;
-
-      TString extra_title = "";
-      if(plot.applyAveraging) {
-	extra_title += ", Averaged over ";
-	extra_title += plot.numToAvg*2;
-	extra_title += " points";
+      TTreeFormula *testExtraCuts=NULL;
+      if(plot.extraCuts!=""){
+	testExtraCuts= new TTreeFormula("testExtraCuts", plot.extraCuts, tree);
+	hasVars = (testExtraCuts->GetNdim()>0) && (testExtraCuts->GetNdata()>0);
+	if(!hasVars) continue;
       }
-      if(plot.applyNormalize) extra_title += ", Normalized to Start of Run"; 
       
-      plot_title += extra_title;
-      */
+    
       if(verbose) cout << "   Drawing Plot: " << plot.yBranch << " vs " << plot.xBranch << endl;
 
       // Create Canvas 
@@ -3823,6 +3824,9 @@ void vpt_analysis::get_plots(vector<plotInfo> &plotList){
 
 	    vpt->fit_orng_ = fit;
 	  }
+	  if( plot.yBranch.Contains("blue_load_cathode_current_per_pulse") ){
+	    vpt->fit_cath_ = fit;
+	  }
 	}
 	
 
@@ -3865,7 +3869,8 @@ void vpt_analysis::get_plots(vector<plotInfo> &plotList){
       // If Normalizing, then do it!
       //
       TF1 *fit_norm=NULL;
-      double norm = gr1->GetY()[0];
+      double norm  = gr1->GetY()[0];
+      //double normX = gr1->GetX()[0];
       if(plot.applyNormalize && gr1){
 	
 	Double_t *yVals     = gr1->GetY();
@@ -3895,8 +3900,9 @@ void vpt_analysis::get_plots(vector<plotInfo> &plotList){
 	  fit_norm->SetLineColor(kRed);
 	}
 
-	if( plot.yBranch.Contains("orange_reference_anode") ) vpt->fit_orng_norm_ = fit_norm;
-	if( plot.yBranch.Contains("blue_reference_anode") )   vpt->fit_blue_norm_ = fit_norm;
+	if( plot.yBranch.Contains("orange_reference_anode") )               vpt->fit_orng_norm_ = fit_norm;
+	if( plot.yBranch.Contains("blue_reference_anode") )                 vpt->fit_blue_norm_ = fit_norm;
+	if( plot.yBranch.Contains("blue_load_cathode_current_per_pulse") )  vpt->fit_cath_norm_ = fit_norm;
 
       } // end if normalizing
 
@@ -3975,43 +3981,51 @@ void vpt_analysis::get_plots(vector<plotInfo> &plotList){
 	if(vpt->site_==site::uva){
 	  if(vpt->run_num_==run_num::run1){ 
 	    uva_run1.push_back(this_pair);
+	    //uva_good_runs.push_back(this_pair);
 	    if( plot.yBranch.Contains("blue_reference_anode") ){   uva_run1_fit_blue.push_back(this_pair);}
 	    if( plot.yBranch.Contains("orange_reference_anode") ){ uva_run1_fit_orng.push_back(this_pair);}
-	      
+	    if( plot.yBranch.Contains("blue_load_cathode_current_per_pulse") ){ uva_run1_fit_cath.push_back(this_pair);}  
 	  }
 	  if(vpt->run_num_==run_num::run2){ 
 	    uva_run2.push_back(this_pair); 
-	    uva_good_runs.push_back(this_pair);
+	    //uva_good_runs.push_back(this_pair);
 	    if( plot.yBranch.Contains("blue_reference_anode") ){   uva_run2_fit_blue.push_back(this_pair); uva_good_runs_fit_blue.push_back(this_pair); }
 	    if( plot.yBranch.Contains("orange_reference_anode") ){ uva_run2_fit_orng.push_back(this_pair); uva_good_runs_fit_orng.push_back(this_pair); }
+	    if( plot.yBranch.Contains("blue_load_cathode_current_per_pulse") ){ uva_run2_fit_cath.push_back(this_pair); }
 	  }
 	  if(vpt->run_num_==run_num::run3){ 
 	    uva_run3.push_back(this_pair); 
 	    uva_good_runs.push_back(this_pair);
 	    if( plot.yBranch.Contains("blue_reference_anode") ){   uva_run3_fit_blue.push_back(this_pair); uva_good_runs_fit_blue.push_back(this_pair); }
 	    if( plot.yBranch.Contains("orange_reference_anode") ){ uva_run3_fit_orng.push_back(this_pair); uva_good_runs_fit_orng.push_back(this_pair); }
+	    if( plot.yBranch.Contains("blue_load_cathode_current_per_pulse") ){ uva_run3_fit_cath.push_back(this_pair); uva_good_runs_fit_cath.push_back(this_pair); }
 	  }
 	  if(vpt->run_num_==run_num::run4){
 	    uva_run4.push_back(this_pair);
+	    //uva_good_runs.push_back(this_pair);
 	    if( plot.yBranch.Contains("blue_reference_anode") ){   uva_run4_fit_blue.push_back(this_pair); }
 	    if( plot.yBranch.Contains("orange_reference_anode") ){ uva_run4_fit_orng.push_back(this_pair); }
+	    if( plot.yBranch.Contains("blue_load_cathode_current_per_pulse") ){ uva_run4_fit_cath.push_back(this_pair); }
 	  }
 	  if(vpt->run_num_==run_num::run5){ 
 	    uva_run5.push_back(this_pair); 
 	    uva_good_runs.push_back(this_pair);
 	    if( plot.yBranch.Contains("blue_reference_anode") ){   uva_run5_fit_blue.push_back(this_pair); uva_good_runs_fit_blue.push_back(this_pair); }
 	    if( plot.yBranch.Contains("orange_reference_anode") ){ uva_run5_fit_orng.push_back(this_pair); uva_good_runs_fit_orng.push_back(this_pair); }
+	    if( plot.yBranch.Contains("blue_load_cathode_current_per_pulse") ){ uva_run5_fit_cath.push_back(this_pair); uva_good_runs_fit_cath.push_back(this_pair); }
 	  }
 	  if(vpt->run_num_==run_num::run6){ 
 	    uva_run6.push_back(this_pair); 
 	    uva_good_runs.push_back(this_pair);
 	    if( plot.yBranch.Contains("blue_reference_anode") ){   uva_run6_fit_blue.push_back(this_pair); uva_good_runs_fit_blue.push_back(this_pair); }
 	    if( plot.yBranch.Contains("orange_reference_anode") ){ uva_run6_fit_orng.push_back(this_pair); uva_good_runs_fit_orng.push_back(this_pair); }
+	    if( plot.yBranch.Contains("blue_load_cathode_current_per_pulse") ){ uva_run6_fit_cath.push_back(this_pair); uva_good_runs_fit_cath.push_back(this_pair); }
 	  }
 
 	  uva_all_runs.push_back(this_pair);
 	  if( plot.yBranch.Contains("blue_reference_anode") ){   uva_all_runs_fit_blue.push_back(this_pair); }
 	  if( plot.yBranch.Contains("orange_reference_anode") ){ uva_all_runs_fit_orng.push_back(this_pair); }
+	  if( plot.yBranch.Contains("blue_load_cathode_current_per_pulse") ){ uva_all_runs_fit_cath.push_back(this_pair); }
 	  
 	}
       }
@@ -4104,8 +4118,8 @@ void vpt_analysis::get_plots(vector<plotInfo> &plotList){
       get_overlay_plots(uva_run4,      plot);
       get_overlay_plots(uva_run5,      plot);
       get_overlay_plots(uva_run6,      plot);
-      get_overlay_plots(uva_good_runs, plot);
-      get_overlay_plots(uva_all_runs,  plot);
+      get_overlay_plots(uva_good_runs, plot, "all_good_runs");
+      get_overlay_plots(uva_all_runs,  plot, "all_runs");
     }
 
   } // end loop over plot list
@@ -4114,14 +4128,17 @@ void vpt_analysis::get_plots(vector<plotInfo> &plotList){
   //
   // Draw Overlay Plots
   //
-  plotInfo bluePlot, orngPlot;
+  plotInfo bluePlot, orngPlot, cathPlot;
   for(int iPlot=0; iPlot<(int)plotList.size(); iPlot++){
     if( plotList[iPlot].yBranch.Contains("blue_reference_anode") ){   bluePlot = plotList[iPlot]; break; }
   }
   for(int iPlot=0; iPlot<(int)plotList.size(); iPlot++){
     if( plotList[iPlot].yBranch.Contains("orange_reference_anode") ){ orngPlot = plotList[iPlot]; break; }
   }
-
+  for(int iPlot=0; iPlot<(int)plotList.size(); iPlot++){
+    if( plotList[iPlot].yBranch.Contains("blue_load_cathode_current_per_pulse") ){ cathPlot = plotList[iPlot]; break; }
+  }
+ 
   if(bluePlot.applyFit){
     get_overlay_plots(brunel_run1_fit_blue,   bluePlot);
     get_overlay_plots(brunel_run2_fit_blue,   bluePlot);
@@ -4144,7 +4161,16 @@ void vpt_analysis::get_plots(vector<plotInfo> &plotList){
     get_overlay_plots(uva_good_runs_fit_orng, orngPlot, "all_good_runs");
     get_overlay_plots(uva_all_runs_fit_orng,  orngPlot, "all_runs");
   }
-
+  if(cathPlot.applyFit){
+    get_overlay_plots(uva_run1_fit_cath,      cathPlot);
+    get_overlay_plots(uva_run2_fit_cath,      cathPlot);
+    get_overlay_plots(uva_run3_fit_cath,      cathPlot);
+    get_overlay_plots(uva_run4_fit_cath,      cathPlot);
+    get_overlay_plots(uva_run5_fit_cath,      cathPlot);
+    get_overlay_plots(uva_run6_fit_cath,      cathPlot);
+    get_overlay_plots(uva_good_runs_fit_cath, cathPlot, "all_good_runs");
+    get_overlay_plots(uva_all_runs_fit_cath,  cathPlot, "all_runs");
+  }
 
   return;
 }
@@ -4227,33 +4253,6 @@ void vpt_analysis::get_overlay_plots(v_vpt_plot &plotList, plotInfo plot, TStrin
 
   TMultiGraph *mg = new TMultiGraph();
 
-  /*
-  TString overlayTitle = "";
-  overlayTitle += "CMS Preliminary, ";
-
-  if(plotList[0].first->site_==site::brunel)     overlayTitle += "Brunel site, ";
-  if(plotList[0].first->site_==site::uva)        overlayTitle += "U.Va. site, ";
-
-  if(plotList[0].first->run_num_==run_num::run1) overlayTitle += "Run 1, ";
-  if(plotList[0].first->run_num_==run_num::run2) overlayTitle += "Run 2, ";
-  if(plotList[0].first->run_num_==run_num::run3) overlayTitle += "Run 3, ";
-  if(plotList[0].first->run_num_==run_num::run4) overlayTitle += "Run 4, ";
-  if(plotList[0].first->run_num_==run_num::run5) overlayTitle += "Run 5, ";
-  if(plotList[0].first->run_num_==run_num::run6) overlayTitle += "Run 6, ";
-
-  overlayTitle += "Overlays - ";
-  overlayTitle += plot.title;
- 
-  TString extra_title = "";
-  if(plot.applyAveraging) {
-    extra_title += ", Averaged over ";
-    extra_title += plot.numToAvg*2;
-    extra_title += " points";
-  }
-  if(plot.applyNormalize) extra_title += ", Normalized to Start of Run"; 
-  
-  overlayTitle += extra_title;
-  */
   TString overlayTitle = plot.title;
 
   mg->SetTitle(0); // Draw Title with TLatex later
@@ -4291,7 +4290,7 @@ void vpt_analysis::get_overlay_plots(v_vpt_plot &plotList, plotInfo plot, TStrin
     leg->AddEntry(gr1, "vpt "+plotList[i].first->rie_number_, "flp"); 
   }
   if(yMax>0.0){
-    if((int)plotList.size()>5) mg->SetMaximum(1.3*yMax);
+    if((int)plotList.size()>5) mg->SetMaximum(1.4*yMax);
     else                       mg->SetMaximum(1.1*yMax);
   }
 
@@ -4309,12 +4308,20 @@ void vpt_analysis::get_overlay_plots(v_vpt_plot &plotList, plotInfo plot, TStrin
 	  plotList[i].first->fit_orng_->Draw("same");
 	}
       }
-      else{
+      else if( plot.yBranch.Contains("blue_reference_anode") ){
 	if( plot.applyNormalize ){
 	  plotList[i].first->fit_blue_norm_->Draw("same");
 	}
 	else{
 	  plotList[i].first->fit_blue_->Draw("same");
+	}
+      }
+      else if( plot.yBranch.Contains("blue_load_cathode_current_per_pulse") ){
+	if( plot.applyNormalize ){
+	  plotList[i].first->fit_cath_norm_->Draw("same");
+	}
+	else{
+	  plotList[i].first->fit_cath_->Draw("same");
 	}
       }
     }
