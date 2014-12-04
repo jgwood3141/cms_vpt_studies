@@ -18,6 +18,10 @@ root -l -b -q ../macros/vpt_analyzer.C++
 echo 'Running VPT plotting macro'
 root -l -b -q ../macros/vpt_plots.C++
 
+#
+# Execute data fitting macro
+echo 'Running VPT fitting macro'
+root -l -b -q ../macros/vpt_fits.C++
 
 #
 # Outro
